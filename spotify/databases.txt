@@ -1,0 +1,4 @@
+https://www.kaggle.com/datasets/joebeachcapital/30000-spotify-songs
+https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023
+https://www.kaggle.com/datasets/undefinenull/million-song-dataset-spotify-lastfm 
+http://millionsongdataset.com/

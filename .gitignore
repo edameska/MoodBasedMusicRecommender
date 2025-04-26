@@ -1,0 +1,18 @@
+# Python virtual environment
+myenv/
+env/
+
+# Cache files/directories
+cache/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large data files (CSV, model files)
+*.csv
+*.h5
+
+# Image files (if they're generated files)
+*.png
