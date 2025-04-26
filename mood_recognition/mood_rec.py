@@ -20,7 +20,7 @@ image_size = 48
 data['image'] = data['pixels'].apply(lambda x: x.reshape((image_size, image_size)))
 
 # displays multiple images
-fig, axes = plt.subplots(1, 5, figsize=(20, 5))  # 1 row, 5 columns
+#fig, axes = plt.subplots(1, 5, figsize=(20, 5))  # 1 row, 5 columns
 
 #Data normailization
 
@@ -101,10 +101,11 @@ model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accur
 model.summary()
 
 # Train the model
-model.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
+model.fit(X_train, y_train, epochs=100, validation_data=(X_test, y_test))
 model.save('emotion_model.h5')
 
 #see which makes most mistakes
+emotion_labels = ['Angry', 'Happy', 'Sad', 'Fear', 'Neutral']
 
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
