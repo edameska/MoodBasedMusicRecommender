@@ -35,7 +35,7 @@ def add_personal_match_scores(df, top_artists, top_songs):
     # Boost if song in user top songs
     df['song_match'] = df['Title'].apply(lambda t: 1 if t in top_songs else 0)
     return df
-def rank_recommendations(df, mood_weight=0.5, artist_weight=0.3, song_weight=0.2):
+def rank_recommendations(df, mood_weight=0.5, artist_weight=0.2, song_weight=0.3):
     df = df.copy()
     # Combine weights for final ranking score
     df['final_score'] = (mood_weight * 1) + (artist_weight * df['artist_match']) + (song_weight * df['song_match'])
@@ -63,7 +63,17 @@ if __name__ == "__main__":
     top_tracks = [item['name'] for item in top_tracks_data['items']]
     top_artists = [item['name'] for item in top_artists_data['items']]
 
-    emotion = "Happy"  # Simulated detected emotion
+    #emotion = "Angry"  # Simulated detected emotion
+    
+    import sys
+    import os
+    # Add the parent directory and then mood_recognition to the path
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'mood_recognition')))
+
+    from mood_detect import detect_emotion
+    emotion = detect_emotion(model_path="/home/edameska/Desktop/New Folder/graduation /mood_recognition/emotion_model.h5")
+    print("Detected Emotion:", emotion)
+   
     filtered_df = filter_songs_by_emotion(df, emotion)
     # Add personal match scores based on user data
     scored_df = add_personal_match_scores(filtered_df, top_artists, top_tracks)

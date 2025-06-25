@@ -16,3 +16,6 @@ __pycache__/
 
 # Image files (if they're generated files)
 *.png
+
+.env
+test.py
