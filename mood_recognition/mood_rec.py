@@ -49,13 +49,13 @@ X_val, X_final_test, y_val, y_final_test = train_test_split(X_test, y_test, test
 
 
 
-# Calculate class weights
+# Calculate class weights (keep this part the same)
 class_weights = class_weight.compute_class_weight('balanced',
                                                 classes=np.unique(np.argmax(y_train, axis=1)),
                                                 y=np.argmax(y_train, axis=1))
 class_weights = dict(enumerate(class_weights))
 
-# Enhanced data augmentation
+# Enhanced data augmentation (keep this the same)
 train_datagen = ImageDataGenerator(
     rotation_range=10,
     zoom_range=0.1,
@@ -65,53 +65,42 @@ train_datagen = ImageDataGenerator(
     fill_mode='nearest'
 )
 
-# Build model
+# Build model according to data dimensions (48x48x1)
 model = models.Sequential()
 
-# First Conv block
-model.add(layers.Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(48, 48, 1)))
-# 32 filters (feature detectors) of size 3x3, ReLU activation for non-linearity
-# 'same' padding preserves spatial dimensions, input_shape matches our 48x48 grayscale images
-model.add(layers.BatchNormalization())# Normalizes activations to stabilize and accelerate training
+# Input layer - matches data (48x48x1)
+model.add(layers.Input(shape=(48, 48, 1)))
+
+# First Conv block (48x48x32)
 model.add(layers.Conv2D(32, (3, 3), activation='relu', padding='same'))
 model.add(layers.BatchNormalization())
-model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-# MaxPooling reduces spatial dimensions, retaining important features
-# 2x2 pooling size reduces each feature map by half
-model.add(layers.Dropout(0.25))
-# Dropout regularization to prevent overfitting, randomly dropping 25% of neurons
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))  # Reduces to 24x24
 
-# Second Conv block
-model.add(layers.Conv2D(64, (3, 3), activation='relu', padding='same'))
-# 64 filters for more complex feature extraction
-model.add(layers.BatchNormalization())
+# Second Conv block (24x24x64)
 model.add(layers.Conv2D(64, (3, 3), activation='relu', padding='same'))
 model.add(layers.BatchNormalization())
-model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-model.add(layers.Dropout(0.25))
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))  # Reduces to 12x12
 
-# Third Conv block
-model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
-# 128 filters for deeper feature extraction
-model.add(layers.BatchNormalization())
+# Third Conv block (12x12x128)
 model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
 model.add(layers.BatchNormalization())
-model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-model.add(layers.Dropout(0.25))
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))  # Reduces to 6x6
+
+# Fourth Conv block (6x6x256)
+model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
+model.add(layers.BatchNormalization())
+model.add(layers.MaxPooling2D(pool_size=(2, 2)))  # Reduces to 3x3
+
+# Fifth Conv block (3x3x64)
+model.add(layers.Conv2D(64, (3, 3), activation='relu', padding='same'))
+model.add(layers.BatchNormalization())
 
 # Flatten and dense layers
-# Flattening the 3D output to 1D for dense layers
 model.add(layers.Flatten())
-model.add(layers.Dense(512, activation='relu'))  # Reduced from 1024
+model.add(layers.Dense(512, activation='relu'))
 model.add(layers.BatchNormalization())
 model.add(layers.Dropout(0.5))
-# Higher dropout (50%) as dense layers are more prone to overfitting
-model.add(layers.Dense(256, activation='relu'))  # Additional layer for better learning
-model.add(layers.BatchNormalization())
-model.add(layers.Dropout(0.3))
-model.add(layers.Dense(5, activation='softmax'))  # Explicit 5 classes
-# Softmax converts outputs to probability distribution across classes
-
+model.add(layers.Dense(5, activation='softmax'))  # 5 classes as per your filtered data
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=0.0003), 
@@ -121,14 +110,12 @@ model.compile(
 
 model.summary()
 
-# Callbacks
+# Callbacks (keep these the same)
 callbacks = [
-    EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),# Early stopping to prevent overfitting
-    # Stops training if validation loss doesn't improve for 10 epochs
-    ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=7, min_lr=0.00001),# Reduces learning rate if validation loss plateaus
+    EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=7, min_lr=0.00001),
     ModelCheckpoint('best_model.h5', save_best_only=True)
 ]
-
 # Train with augmented data
 history = model.fit(
     train_datagen.flow(X_train, y_train, batch_size=64),
@@ -185,7 +172,7 @@ plt.ylabel('Loss')
 plt.tight_layout()
 plt.show()
 
-# Optional: Plot learning rate schedule
+# Plot learning rate schedule
 if 'lr' in history.history:
     plt.figure(figsize=(8,4))
     plt.plot(history.history['lr'])

@@ -6,43 +6,75 @@ from dotenv import load_dotenv
 
 df = pd.read_csv('Spotify_Dataset_V3.csv', delimiter=';')
 
-
 def get_feature_ranges(emotion):
-    if emotion == "Happy":
-        return {"Valence": (0.7, 1.0), "Energy": (0.7, 1.0), "Danceability": (0.6, 1.0), "Acousticness": (0.0, 0.4), "Instrumentalness": (0.0, 0.2)}
-    elif emotion == "Sad":
-        return {"Valence": (0.0, 0.4), "Energy": (0.0, 0.5), "Danceability": (0.0, 0.5), "Acousticness": (0.6, 1.0), "Instrumentalness": (0.2, 0.8)}
-    elif emotion == "Angry":
-        return {"Valence": (0.0, 0.4), "Energy": (0.7, 1.0), "Danceability": (0.4, 0.7), "Acousticness": (0.0, 0.3), "Instrumentalness": (0.0, 0.3)}
+    if emotion == "Angry":
+        return {
+            "Valence": (0.1, 0.4),    # Low valence (negative emotion) [1]
+            "Energy": (0.7, 1.0),     # High energy (arousal) [1]
+            "Loudness": (-8, -1),    # Loudness correlates with aggression [2]
+            "Speechiness": (0.2, 0.7) # Angry songs often have rap/aggressive vocals [3]
+        }
     elif emotion == "Fear":
-        return {"Valence": (0.0, 0.3), "Energy": (0.4, 0.6), "Danceability": (0.0, 0.5), "Acousticness": (0.5, 1.0), "Instrumentalness": (0.3, 1.0)}
-    else:
-        return {"Valence": (0.4, 0.6), "Energy": (0.4, 0.6), "Danceability": (0.4, 0.6), "Acousticness": (0.3, 0.6), "Instrumentalness": (0.0, 0.4)} #maybe change this later
-
-# Filter songs based on emotion feature ranges
+        return {
+            "Valence": (0.0, 0.3),    # Very low valence (unpleasant) [1]
+            "Energy": (0.4, 0.8),     # Moderate-high energy (tension) [4]
+            "Instrumentalness": (0.5, 1.0) # Fear often uses instrumental tracks (e.g., horror scores) [5]
+        }
+    elif emotion == "Happy":
+        return {
+            "Valence": (0.7, 1.0),   # High valence (positive) [1]
+            "Energy": (0.6, 1.0),     # High energy [1]
+            "Danceability": (0.6, 1.0) # Happy music is often danceable [6]
+        }
+    elif emotion == "Sad":
+        return {
+            "Valence": (0.0, 0.4),    # Low valence [1]
+            "Energy": (0.1, 0.5),     # Low energy [1]
+            "Acousticness": (0.5, 1.0) # Sad songs often use acoustic instruments [7]
+        }
+    else:  # Neutral
+        return {
+            "Valence": (0.4, 0.6),   # Mid-range valence
+            "Energy": (0.3, 0.6)      # Moderate energy
+        }
 def filter_songs_by_emotion(df, emotion):
+    """
+    Filter songs in df to those within the feature ranges of the given emotion.
+    """
     ranges = get_feature_ranges(emotion)
-    filtered = df.copy()
-    filtered = filtered.drop_duplicates(subset=['Title', 'Artists'])
+    filtered = df.drop_duplicates(subset=['Title', 'Artists'])
     for feature, (low, high) in ranges.items():
         filtered = filtered[(filtered[feature] >= low) & (filtered[feature] <= high)]
     return filtered
 
 def add_personal_match_scores(df, top_artists, top_songs):
+    """
+    Adds binary columns for artist and song matches based on user's top artists/songs.
+    Handles multiple artists by splitting on comma.
+    """
     df = df.copy()
-    # Boost if artist in user top artists
-    df['artist_match'] = df['Artists'].apply(lambda a: 1 if a in top_artists else 0)
-    # Boost if song in user top songs
-    df['song_match'] = df['Title'].apply(lambda t: 1 if t in top_songs else 0)
+    top_artists_set = set(a.lower() for a in top_artists)
+    top_songs_set = set(s.lower() for s in top_songs)
+
+    def artist_in_top(artist_str):
+        artists = [a.strip().lower() for a in artist_str.split(',')]
+        return int(any(a in top_artists_set for a in artists))
+
+    df['artist_match'] = df['Artists'].apply(artist_in_top)
+    df['song_match'] = df['Title'].str.lower().apply(lambda t: 1 if t in top_songs_set else 0)
     return df
-def rank_recommendations(df, mood_weight=0.5, artist_weight=0.2, song_weight=0.3):
+
+def rank_recommendations(df, mood_weight=0.6, artist_weight=0.15, song_weight=0.25):
+    """
+    Ranks songs by combining mood closeness (placeholder), artist, and song match scores.
+    Mood closeness currently constant; consider implementing a real score.
+    """
     df = df.copy()
-    # Combine weights for final ranking score
     df['final_score'] = (mood_weight * 1) + (artist_weight * df['artist_match']) + (song_weight * df['song_match'])
     return df.sort_values(by='final_score', ascending=False)
 
 # Recommend top N songs 
-def recommend_top_songs(df, n=10):
+def recommend_top_songs(df, n=50):
     return df.head(n)
 
 if __name__ == "__main__":
@@ -75,6 +107,15 @@ if __name__ == "__main__":
     print("Detected Emotion:", emotion)
    
     filtered_df = filter_songs_by_emotion(df, emotion)
+    ranges = get_feature_ranges(emotion)
+    filtered = df.copy()
+
+    for feature, (low, high) in ranges.items():
+        before = len(filtered)
+        filtered = filtered[(filtered[feature] >= low) & (filtered[feature] <= high)]
+        print(f"After filtering {feature} ({low}-{high}): {before} -> {len(filtered)} songs left")
+
+
     # Add personal match scores based on user data
     scored_df = add_personal_match_scores(filtered_df, top_artists, top_tracks)
     # Rank by combined score
