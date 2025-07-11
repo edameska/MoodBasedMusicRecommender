@@ -11,8 +11,8 @@ def get_feature_ranges(emotion):
         return {
             "Valence": (0.1, 0.4),    # Low valence (negative emotion) [1]
             "Energy": (0.7, 1.0),     # High energy (arousal) [1]
-            "Loudness": (-8, -1),    # Loudness correlates with aggression [2]
-            "Speechiness": (0.2, 0.7) # Angry songs often have rap/aggressive vocals [3]
+            "Loudness": (-8, 0),    # Loudness correlates with aggression [2]
+            "Speechiness": (0.2, 0.95) # Angry songs often have rap/aggressive vocals [3]
         }
     elif emotion == "Fear":
         return {
@@ -64,17 +64,37 @@ def add_personal_match_scores(df, top_artists, top_songs):
     df['song_match'] = df['Title'].str.lower().apply(lambda t: 1 if t in top_songs_set else 0)
     return df
 
-def rank_recommendations(df, mood_weight=0.6, artist_weight=0.15, song_weight=0.25):
+def score_feature(value, low, high):
+    if value < low or value > high:
+        return 0
+    mid = (low + high) / 2
+    max_dist = (high - low) / 2
+    dist = abs(value - mid)
+    return 1 - (dist / max_dist)
+
+def add_mood_scores(df, emotion):
+    ranges = get_feature_ranges(emotion)
+    df = df.copy()
+    mood_scores = []
+    for idx, row in df.iterrows():
+        scores = []
+        for feature, (low, high) in ranges.items():
+            scores.append(score_feature(row[feature], low, high))
+        mood_scores.append(sum(scores) / len(scores))
+    df['mood_score'] = mood_scores
+    return df
+
+def rank_recommendations(df, mood_weight=0.5, artist_weight=0.25, song_weight=0.25):
     """
-    Ranks songs by combining mood closeness (placeholder), artist, and song match scores.
+    Ranks songs by combining mood closeness, artist, and song match scores.
     Mood closeness currently constant; consider implementing a real score.
     """
     df = df.copy()
-    df['final_score'] = (mood_weight * 1) + (artist_weight * df['artist_match']) + (song_weight * df['song_match'])
+    df['final_score'] = (mood_weight * df['mood_score']) + (artist_weight * df['artist_match']) + (song_weight * df['song_match'])
     return df.sort_values(by='final_score', ascending=False)
 
 # Recommend top N songs 
-def recommend_top_songs(df, n=50):
+def recommend_top_songs(df, n=10):
     return df.head(n)
 
 if __name__ == "__main__":
@@ -95,7 +115,7 @@ if __name__ == "__main__":
     top_tracks = [item['name'] for item in top_tracks_data['items']]
     top_artists = [item['name'] for item in top_artists_data['items']]
 
-    #emotion = "Angry"  # Simulated detected emotion
+    emotion = "Happy"  # Simulated detected emotion
     
     import sys
     import os
@@ -103,25 +123,31 @@ if __name__ == "__main__":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'mood_recognition')))
 
     from mood_detect import detect_emotion
-    emotion = detect_emotion(model_path="/home/edameska/Desktop/New Folder/graduation /mood_recognition/emotion_model.h5")
+    #emotion = detect_emotion(model_path="/home/edameska/Desktop/New Folder/graduation /mood_recognition/emotion_model.h5")
     print("Detected Emotion:", emotion)
    
-    filtered_df = filter_songs_by_emotion(df, emotion)
+    filtered_df = df.drop_duplicates(subset=['Title', 'Artists'])
     ranges = get_feature_ranges(emotion)
-    filtered = df.copy()
 
+    # Debugging: print how many songs remain after each feature filter
     for feature, (low, high) in ranges.items():
-        before = len(filtered)
-        filtered = filtered[(filtered[feature] >= low) & (filtered[feature] <= high)]
-        print(f"After filtering {feature} ({low}-{high}): {before} -> {len(filtered)} songs left")
+        before = len(filtered_df)
+        filtered_df = filtered_df[(filtered_df[feature] >= low) & (filtered_df[feature] <= high)]
+        print(f"After filtering {feature} ({low}-{high}): {before} -> {len(filtered_df)} songs left")
 
+    # Add mood scores
+    scored_df = add_mood_scores(filtered_df, emotion)
 
-    # Add personal match scores based on user data
-    scored_df = add_personal_match_scores(filtered_df, top_artists, top_tracks)
+    # Add personal match scores (artist and song)
+    scored_df = add_personal_match_scores(scored_df, top_artists, top_tracks)
+
     # Rank by combined score
     ranked_df = rank_recommendations(scored_df)
-    # Pick top N
+
+    # Recommend top 10 songs
     recommendations = recommend_top_songs(ranked_df, n=10)
 
     print(f"\nTop 10 personalized songs for emotion: {emotion}")
+
     print(recommendations[['Title', 'Artists', 'final_score']])
+    recommendations[['Title', 'Artists', 'final_score']].to_csv('full_recommendations.csv', index=False)
